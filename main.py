@@ -39,26 +39,25 @@ from langchain_core.runnables import RunnablePassthrough
 
 vector_retriever = vectordb.as_retriever(
     #search_type="similarity_score_threshold", 
-    #search_kwargs={"score_threshold": 0.5}
-    search_kwargs={"k": 1}
+    #search_kwargs={"score_threshold": 0.1}
+    search_kwargs={"k": 3}
+    #search_type="mmr"
 )
 
 template = """
-Assistant is a large language model.
-Assistant is designed to be able to assist with a wide range of tasks, from answering simple questions to providing in-depth explanations and discussions on a wide range of topics.
-Answer the question from Human based only on the given context. 
-If you do not have information in the context, say you do not know, instead of making up on your own.
+<s>[INST]<<SYS>>
+Assistant is a large language model from ELTE university. Answer the question from ### Human based only on the GIVEN context BELOW. Answer in a short and consice way. Assistant is designed to be able to assist students providing information about ELTE university. If you do not have information in the context, say you do not know.
 
 Context: {context}
-
+<</SYS>>
 ### Human: {question}
-
+[/INST]
 ### Assistant answer:
 """
 prompt = ChatPromptTemplate.from_template(template)
 
 def format_docs(docs):
-    return "\n\n".join([d.page_content for d in docs])
+    return "\n".join([d.page_content for d in docs])
 
 chain = (
     {"context": vector_retriever | format_docs, "question": RunnablePassthrough()}
@@ -67,7 +66,7 @@ chain = (
     | StrOutputParser()
 )
 
-print("ELTE student mentor: How can I help you today?")
+#print("ELTE student mentor: How can I help you today?")
 #while True:
 #    query = input("You: ")
 #    docs = vector_retriever.invoke(query)
@@ -77,14 +76,24 @@ print("ELTE student mentor: How can I help you today?")
 
 app = Flask(__name__)
 
-@app.route('/', methods=['POST'])
+@app.route('/api/endpoint', methods=['POST'])
 def call_function():
-    print("hello")
+    # print("hello")
     message = request.json['message']
+    docs = vector_retriever.invoke(message)
+    print("\n\n_________________\ndocs\n", docs, "\n\n")
     result = chain.invoke(message)
     return result
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    # app.run(debug=True)
+    app.run(
+        host="0.0.0.0", 
+        port=5000, 
+        ssl_context=(
+            './cert/fullchain1.pem', 
+            './cert/privkey1.pem'
+        )
+    )
 
 
